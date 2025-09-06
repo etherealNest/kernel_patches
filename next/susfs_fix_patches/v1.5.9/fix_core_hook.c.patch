@@ -2,9 +2,7 @@ diff --git a/kernel/core_hook.c b/kernel/core_hook.c
 index c1e803d7..1e8f98e6 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
-@@ -648,16 +1116,48 @@
- 	if (check_mnt && !should_umount(&path)) {
- 		path_put(&path);
+@@ -1119,12 +1119,35 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
  		return;
  	}
  
@@ -34,33 +32,17 @@ index c1e803d7..1e8f98e6 100644
 +	try_umount("/data/adb/modules", false, MNT_DETACH, uid);
 +	/* For both Legacy KSU and Magic Mount KSU */
 +	try_umount("/debug_ramdisk", true, MNT_DETACH, uid);
-+	try_umount("/sbin", false, MNT_DETACH, uid);
-+
-+	// try umount hosts file
-+	try_umount("/system/etc/hosts", false, MNT_DETACH, uid);
-+
-+	// try umount lsposed dex2oat bins
-+	try_umount("/apex/com.android.art/bin/dex2oat64", false, MNT_DETACH, uid);
-+	try_umount("/apex/com.android.art/bin/dex2oat32", false, MNT_DETACH, uid);
 +}
 +#endif
-+
 +
  int ksu_handle_setuid(struct cred *new, const struct cred *old)
  {
  	// this hook is used for umounting overlayfs for some uid, if there isn't any module mounted, just ignore it!
- 	if (!ksu_module_mounted) {
- 		return 0;
-@@ -725,11 +1297,11 @@
- 	try_umount("/system/etc/hosts", false, MNT_DETACH);
- 
+@@ -1268,6 +1291,7 @@ out_susfs_try_umount_all:
  	// try umount lsposed dex2oat bins
  	try_umount("/apex/com.android.art/bin/dex2oat64", false, MNT_DETACH);
  	try_umount("/apex/com.android.art/bin/dex2oat32", false, MNT_DETACH);
--
 +#endif
+ 
  	return 0;
  }
- 
- // Init functons
- 

@@ -2,9 +2,7 @@ diff --git a/kernel/selinux/rules.c b/kernel/selinux/rules.c
 index c1e803d7..1e8f98e6 100644
 --- a/kernel/selinux/rules.c
 +++ b/kernel/selinux/rules.c
-@@ -137,10 +137,19 @@
- 
- 	// Allow system server kill su process
+@@ -139,6 +139,15 @@ void apply_kernelsu_rules()
  	ksu_allow(db, "system_server", KERNEL_SU_DOMAIN, "process", "getpgid");
  	ksu_allow(db, "system_server", KERNEL_SU_DOMAIN, "process", "sigkill");
  
@@ -19,6 +17,4 @@ index c1e803d7..1e8f98e6 100644
 +
  	mutex_unlock(&ksu_rules);
  }
- 
- #define MAX_SEPOL_LEN 128
  
