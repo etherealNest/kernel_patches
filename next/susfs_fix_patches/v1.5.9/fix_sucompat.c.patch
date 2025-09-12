@@ -2,18 +2,17 @@ diff --git a/kernel/sucompat.c b/kernel/sucompat.c
 index c1e803d7..1e8f98e6 100644
 --- a/kernel/sucompat.c
 +++ b/kernel/sucompat.c
-@@ -14,6 +14,10 @@
+@@ -13,6 +13,9 @@
+ #else
  #include <linux/sched.h>
  #endif
- 
 +#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +#include <linux/susfs_def.h>
 +#endif
-+
+ 
  #include "objsec.h"
  #include "allowlist.h"
- #include "arch.h"
-@@ -43,37 +47,37 @@ static inline void __user *userspace_stack_buffer(const void *d, size_t len)
+@@ -43,37 +46,37 @@ static inline void __user *userspace_stack_buffer(const void *d, size_t len)
  	return copy_to_user(p, d, len) ? NULL : p;
  }
  
@@ -38,146 +37,108 @@ index c1e803d7..1e8f98e6 100644
  {
 -	const char su[] = SU_PATH;
 -
--#ifndef CONFIG_KSU_KPROBES_HOOK
-+	#ifndef CONFIG_KSU_KPROBES_HOOK
+ #ifndef CONFIG_KSU_KPROBES_HOOK
  	if (!ksu_sucompat_non_kp) {
  		return 0;
  	}
--#endif
-+	#endif
+ #endif
  
-+	#ifndef CONFIG_KSU_SUSFS_SUS_SU
++#ifndef CONFIG_KSU_SUSFS_SUS_SU
  	if (!ksu_is_allow_uid(current_uid().val)) {
  		return 0;
  	}
-+	#endif
++#endif
  
-+	#ifdef CONFIG_KSU_SUSFS_SUS_SU
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +	char path[sizeof(su) + 1] = {0};
-+	#else
++#else
  	char path[sizeof(su) + 1];
  	memset(path, 0, sizeof(path));
-+	#endif
++#endif
  	ksu_strncpy_from_user_nofault(path, *filename_user, sizeof(path));
  
  	if (unlikely(!memcmp(path, su, sizeof(su)))) {
-@@ -86,25 +90,28 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
+@@ -84,10 +87,28 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
+ 	return 0;
+ }
  
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0) && defined(CONFIG_KSU_SUSFS_SUS_SU)
++struct filename* susfs_ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags) {
++	struct filename *name = getname_flags(*filename_user, getname_statx_lookup_flags(*flags), NULL);
++
++	if (unlikely(IS_ERR(name) || name->name == NULL)) {
++		return name;
++	}
++
++	if (likely(memcmp(name->name, su, sizeof(su)))) {
++		return name;
++	}
++
++	const char sh[] = SH_PATH;
++	pr_info("vfs_fstatat su->sh!\n");
++	memcpy((void *)name->name, sh, sizeof(sh));
++	return name;
++}
++#endif
++
  int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
  {
--	// const char sh[] = SH_PATH;
+ 	// const char sh[] = SH_PATH;
 -	const char su[] = SU_PATH;
--
--#ifndef CONFIG_KSU_KPROBES_HOOK
-+	#ifndef CONFIG_KSU_KPROBES_HOOK
- 	if (!ksu_sucompat_non_kp){
- 		return 0;
- 	}
--#endif
-+	#endif
  
-+	#ifndef CONFIG_KSU_SUSFS_SUS_SU
+ #ifndef CONFIG_KSU_KPROBES_HOOK
+ 	if (!ksu_sucompat_non_kp){
+@@ -95,16 +116,22 @@ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
+ 	}
+ #endif
+ 
++#ifndef CONFIG_KSU_SUSFS_SUS_SU
  	if (!ksu_is_allow_uid(current_uid().val)) {
  		return 0;
  	}
-+	#endif
++#endif
  
  	if (unlikely(!filename_user)) {
  		return 0;
  	}
  
-+	#ifdef CONFIG_KSU_SUSFS_SUS_SU
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +	char path[sizeof(su) + 1] = {0};
-+	#else
++#else
  	char path[sizeof(su) + 1];
  	memset(path, 0, sizeof(path));
-+	#endif
++#endif
  // Remove this later!! we use syscall hook, so this will never happen!!!!!
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0) && 0
  	// it becomes a `struct filename *` after 5.18
-@@ -168,29 +175,37 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
- }
- 
- int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
--			       void *__never_use_argv, void *__never_use_envp,
--			       int *__never_use_flags)
-+			   void *__never_use_argv, void *__never_use_envp,
-+			   int *__never_use_flags)
+@@ -171,8 +198,12 @@ int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
+ 			       void *__never_use_argv, void *__never_use_envp,
+ 			       int *__never_use_flags)
  {
 -	const char su[] = SU_PATH;
 +	//const char su[] = SU_PATH;
-+	#ifdef CONFIG_KSU_SUSFS_SUS_SU
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +	char path[sizeof(su) + 1] = {0};
-+	#else
++#else
  	char path[sizeof(su) + 1];
-+	#endif
++#endif
  
--#ifndef CONFIG_KSU_KPROBES_HOOK
-+	#ifndef CONFIG_KSU_KPROBES_HOOK
+ #ifndef CONFIG_KSU_KPROBES_HOOK
  	if (!ksu_sucompat_non_kp) {
- 		return 0;
- 	}
--#endif
-+	#endif
- 
+@@ -183,8 +214,10 @@ int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
  	if (unlikely(!filename_user))
  		return 0;
  
-+	#ifndef CONFIG_KSU_SUSFS_SUS_SU
++#ifndef CONFIG_KSU_SUSFS_SUS_SU
  	memset(path, 0, sizeof(path));
-+	#endif
- 	ksu_strncpy_from_user_retry(path, *filename_user, sizeof(path));
+-	ksu_strncpy_from_user_retry(path, *filename_user, sizeof(path));
++#endif
++	ksu_strncpy_from_user_nofault(path, *filename_user, sizeof(path));
  
  	if (likely(memcmp(path, su, sizeof(su))))
  		return 0;
- 
-+	#ifndef CONFIG_KSU_SUSFS_SUS_SU
- 	if (!ksu_is_allow_uid(current_uid().val))
- 		return 0;
-+	#endif
- 
- 	pr_info("sys_execve su found\n");
- 	*filename_user = ksud_user_path();
-@@ -199,6 +214,42 @@ int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
- 
- 	return 0;
+@@ -380,3 +413,4 @@ void ksu_susfs_enable_sus_su(void) {
  }
-+#ifdef CONFIG_KSU_SUSFS_SUS_SU
-+extern bool ksu_su_compat_enabled;
-+bool ksu_devpts_hook = false;
-+bool susfs_is_sus_su_hooks_enabled __read_mostly = false;
-+int susfs_sus_su_working_mode = 0;
-+
-+static bool ksu_is_su_kps_enabled(void) {
-+	for (int i = 0; i < ARRAY_SIZE(su_kps); i++) {
-+		if (su_kps[i]) {
-+			return true;
-+		}
-+	}
-+	return false;
-+}
-+
-+void ksu_susfs_disable_sus_su(void) {
-+	susfs_is_sus_su_hooks_enabled = false;
-+	ksu_devpts_hook = false;
-+	susfs_sus_su_working_mode = SUS_SU_DISABLED;
-+	// Re-enable the su_kps for user, users need to toggle off the kprobe hooks again in ksu manager if they want it disabled.
-+	if (!ksu_is_su_kps_enabled()) {
-+		ksu_sucompat_init();
-+		ksu_su_compat_enabled = true;
-+	}
-+}
-+
-+void ksu_susfs_enable_sus_su(void) {
-+	if (ksu_is_su_kps_enabled()) {
-+		ksu_sucompat_exit();
-+		ksu_su_compat_enabled = false;
-+	}
-+	susfs_is_sus_su_hooks_enabled = true;
-+	ksu_devpts_hook = true;
-+	susfs_sus_su_working_mode = SUS_SU_WITH_HOOKS;
-+}
-+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
+ #endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
  
- int ksu_handle_devpts(struct inode *inode)
- {
++
